@@ -37,10 +37,15 @@ llm_4 = create_llm(max_tokens=None, llm_model="openai/gpt-oss-120b")
 llm_5 = create_llm(max_tokens=None, llm_model="z-ai/glm-4.5-air:free")      #rate limit
 
 llm_1_backup = create_llm(max_tokens=1000, llm_model="z-ai/glm-4-32b")
-
+llm_2_backup = create_llm(max_tokens=1000, llm_model="openai/gpt-oss-20b:free")
+llm_3_backup = create_llm(max_tokens=1000, llm_model="openai/gpt-5-nano")          #to small token
+llm_4_backup = create_llm(max_tokens=1000, llm_model="openai/gpt-oss-120b")
+llm_5_backup = create_llm(max_tokens=1000, llm_model="z-ai/glm-4.5-air:free")
 
 #backup_llms = [llm_2, llm_3, llm_4, llm_5, llm_1_backup]
-backup_llms = [llm_1_backup, llm_2, llm_3, llm_4, llm_5]
+backup_llms_backup = [llm_1_backup, llm_2_backup, llm_3_backup, llm_4_backup, llm_5_backup]
+backup_llms = [llm_2, llm_3, llm_4, llm_5, backup_llms_backup]
+
 
 parser = PydanticOutputParser(pydantic_object=Responce)
 
