@@ -28,18 +28,11 @@ llm = ChatOpenAI(
     #openai/gpt-5-nano to small token
     #openai/gpt-oss-120b
     #z-ai/glm-4.5-air:free rate limit
+    #z-ai/glm-4-32b
     temperature=0,
+    max_completion_tokens=3345,
     model_kwargs={"response_format": {"type": "json_object"}} 
 )
-'''
-
-
-llm = ChatOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    model="gpt-oss-20b",
-    temperature=0
-)
-'''
 
 parser = PydanticOutputParser(pydantic_object=Responce)
 
@@ -69,15 +62,16 @@ Fill in the values for each field.
 '''
 print(response.content)
 '''
-tools = [search_tool, wikipedia_tool, save_tool]
+#tools = [search_tool, wikipedia_tool, save_tool] #
 
 agent = create_tool_calling_agent(
     llm=llm,
     prompt=prompt,
-    tools= tools
+    tools= []
 )
 
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+agent_executor = AgentExecutor(agent=agent, tools=[], verbose=True) #
+
 quary = input("Enter your query: ")
 raw_response = agent_executor.invoke({
     "query": quary,
