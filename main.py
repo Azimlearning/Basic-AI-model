@@ -18,7 +18,7 @@ class Responce(BaseModel):
     ingredients : list[str]
     instructions : list[str]
     sources : list[str]
-    tools_used : list[str] 
+    tools_used : list[str]
 
 def create_llm(max_tokens=None, llm_model=str):
     return ChatOpenAI(
@@ -30,16 +30,17 @@ def create_llm(max_tokens=None, llm_model=str):
         model_kwargs={"response_format": {"type": "json_object"}}
     )
 
-llm = create_llm(max_tokens=None, llm_model="z-ai/glm-4-32b")   
+llm_1 = create_llm(max_tokens=None, llm_model="z-ai/glm-4-32b")   
 llm_2 = create_llm(max_tokens=None, llm_model="openai/gpt-oss-20b:free")
 llm_3 = create_llm(max_tokens=None, llm_model="openai/gpt-5-nano")          #to small token
 llm_4 = create_llm(max_tokens=None, llm_model="openai/gpt-oss-120b")
 llm_5 = create_llm(max_tokens=None, llm_model="z-ai/glm-4.5-air:free")      #rate limit
 
-llm_fallback = create_llm(max_tokens=1000, llm_model="z-ai/glm-4-32b")
+llm_1_backup = create_llm(max_tokens=1000, llm_model="z-ai/glm-4-32b")
 
 
-backup_llms = [llm_2, llm_3, llm_4, llm_5, llm]
+#backup_llms = [llm_2, llm_3, llm_4, llm_5, llm_1_backup]
+backup_llms = [llm_1_backup, llm_2, llm_3, llm_4, llm_5]
 
 parser = PydanticOutputParser(pydantic_object=Responce)
 
@@ -70,7 +71,7 @@ Fill in the values for each field.
 #tools = [search_tool, wikipedia_tool, save_tool] #
 
 agent = create_tool_calling_agent(
-    llm=llm,
+    llm=llm_1,
     prompt=prompt,
     tools= []
 )
@@ -98,20 +99,25 @@ def run_with_token_fallback(query):
             or "too many tokens" in err_msg
             or "requires more credits" in err_msg
         ):
-            print("[!] Token/Credit issue — retrying with reduced max_completion_tokens.:")
+            for try_llms in backup_llms:
+                try:
+                    print(f"[!] Trying another llm: {try_llms.model_name}")
+                    agent_fallback = create_tool_calling_agent(
+                        llm=try_llms,
+                        prompt=prompt,
+                        tools=[]
+                    )
 
-            agent_fallback = create_tool_calling_agent(
-                llm=llm_fallback,
-                prompt=prompt,
-                tools=[]
-            )
-            executor_fallback = AgentExecutor(agent=agent_fallback, tools=[], verbose=True)
+                    executor_fallback = AgentExecutor(agent=agent_fallback, tools=[], verbose=True)
 
-            return executor_fallback.invoke({
-                "query": query,
-                "chat_history": [],
-                "agent_scratchpad": []
-            })
+                    return executor_fallback.invoke({
+                        "query": query,
+                        "chat_history": [],
+                        "agent_scratchpad": []
+                    })
+                except Exception as e:
+                    print(f"[!] Fallback LLM failed: {e}")
+                    continue
 
         else:
             raise
@@ -131,7 +137,7 @@ raw_response = agent_executor.invoke({
 '''
 
 # Parse directly
-chain = prompt | llm | parser
+chain = prompt | llm_1 | parser
 
 ''''''
 #print testing
@@ -146,7 +152,7 @@ print(raw_response.get("output"))
 try:
     structured_response = parser.parse(raw_response["output"])
     print("\n--- PARSED STRUCTURED RESPONSE ---")
-    print(structured_response)  # Pretty print
+    print(structured_response)  
     print("\nTopic:", structured_response.topic)
     print("\nSummary:", structured_response.summary)
     print("\nIngredients:", structured_response.ingredients)
