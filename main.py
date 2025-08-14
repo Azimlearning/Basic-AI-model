@@ -15,34 +15,31 @@ load_dotenv()  # Loads API keys from .env
 class Responce(BaseModel):
     topic : str
     summary : str
+    ingredients : list[str]
+    instructions : list[str]
     sources : list[str]
     tools_used : list[str] 
 
-'''
-LLM Models
-    #openai/gpt-oss-20b:free
-    #openai/gpt-5-nano              to small token
-    #openai/gpt-oss-120b
-    #z-ai/glm-4.5-air:free          rate limit
-    #z-ai/glm-4-32b                 maxed token
-'''
+def create_llm(max_tokens=None, llm_model=str):
+    return ChatOpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        model=llm_model,
+        temperature=0,
+        max_completion_tokens=max_tokens,
+        model_kwargs={"response_format": {"type": "json_object"}}
+    )
 
-llm = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    model="z-ai/glm-4-32b", 
-    temperature=0,
-    model_kwargs={"response_format": {"type": "json_object"}} 
-)
+llm = create_llm(max_tokens=None, llm_model="z-ai/glm-4-32b")   
+llm_2 = create_llm(max_tokens=None, llm_model="openai/gpt-oss-20b:free")
+llm_3 = create_llm(max_tokens=None, llm_model="openai/gpt-5-nano")          #to small token
+llm_4 = create_llm(max_tokens=None, llm_model="openai/gpt-oss-120b")
+llm_5 = create_llm(max_tokens=None, llm_model="z-ai/glm-4.5-air:free")      #rate limit
 
-llm_fallback = ChatOpenAI( #same llm but lower token
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    model="z-ai/glm-4-32b",
-    temperature=0,
-    max_completion_tokens=1000,
-    model_kwargs={"response_format": {"type": "json_object"}}
-)
+llm_fallback = create_llm(max_tokens=1000, llm_model="z-ai/glm-4-32b")
+
+
+backup_llms = [llm_2, llm_3, llm_4, llm_5, llm]
 
 parser = PydanticOutputParser(pydantic_object=Responce)
 
@@ -101,7 +98,7 @@ def run_with_token_fallback(query):
             or "too many tokens" in err_msg
             or "requires more credits" in err_msg
         ):
-            print("[!] Token/Credit issue — retrying with reduced max_completion_tokens...")
+            print("[!] Token/Credit issue — retrying with reduced max_completion_tokens.:")
 
             agent_fallback = create_tool_calling_agent(
                 llm=llm_fallback,
@@ -120,7 +117,8 @@ def run_with_token_fallback(query):
             raise
 
 # ✅ Use fallback runner here
-query = input("Enter your query: ")
+print("Hello i am you personal chef")
+query = input("what recipe would you like to cook?: ")
 raw_response = run_with_token_fallback(query)
 
 '''
@@ -150,8 +148,10 @@ try:
     print("\n--- PARSED STRUCTURED RESPONSE ---")
     print(structured_response)  # Pretty print
     print("\nTopic:", structured_response.topic)
-    print("Summary:", structured_response.summary)
-    print("Sources:", structured_response.sources)
-    print("Tools Used:", structured_response.tools_used)
+    print("\nSummary:", structured_response.summary)
+    print("\nIngredients:", structured_response.ingredients)
+    print("\nInstructions:", structured_response.instructions)
+    print("\nSources:", structured_response.sources)
+    print("\nTools Used:", structured_response.tools_used)
 except Exception as e:
     print("Error parsing response:", e)
