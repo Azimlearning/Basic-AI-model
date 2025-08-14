@@ -30,7 +30,7 @@ llm = ChatOpenAI(
     #z-ai/glm-4.5-air:free rate limit
     #z-ai/glm-4-32b
     temperature=0,
-    max_completion_tokens=3345,
+    max_completion_tokens=2000,
     model_kwargs={"response_format": {"type": "json_object"}} 
 )
 
@@ -59,9 +59,7 @@ Fill in the values for each field.
 
 #Wrap your response strictly in JSON matching this schema:\n{format_instructions}
 
-'''
-print(response.content)
-'''
+
 #tools = [search_tool, wikipedia_tool, save_tool] #
 
 agent = create_tool_calling_agent(
@@ -79,27 +77,26 @@ raw_response = agent_executor.invoke({
     "agent_scratchpad": []
 })
 
-'''
-print("RAW RESPONSE:", repr(raw_response))
-print("OUTPUT FIELD:", repr(raw_response.get("output")))
-'''
 # Parse directly
 chain = prompt | llm | parser
 
+''''''
+#print testing
+print("\n--- RAW RESPONSE ---")
+print(raw_response)
+
+# Show only the output field
+print("\n--- OUTPUT FIELD ---")
+print(raw_response.get("output"))
+
+# Parse to Pydantic model
 try:
     structured_response = parser.parse(raw_response["output"])
-    print("Structured Response:", structured_response)
+    print("\n--- PARSED STRUCTURED RESPONSE ---")
+    print(structured_response)  # Pretty print
+    print("\nTopic:", structured_response.topic)
+    print("Summary:", structured_response.summary)
+    print("Sources:", structured_response.sources)
+    print("Tools Used:", structured_response.tools_used)
 except Exception as e:
-    print("Error parsing response:", e,  raw_response)
-    # Fallback to parsing the first text output if available
-
-
-'''
-
-    if isinstance(raw_response.get("output"), list) and len(raw_response["output"]) > 0:
-
-structured_response = parser.parse(raw_response["output"])'''
-
-'''structured_response = parser.parse(raw_response.get("output")[0]["text"])'''
-
-'''print(structured_response)'''
+    print("Error parsing response:", e)
