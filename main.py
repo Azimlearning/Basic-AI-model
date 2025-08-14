@@ -8,8 +8,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.runnables import RunnableSequence
 from tools import search_tool, wikipedia_tool, save_tool
-
-
+import traceback
 
 load_dotenv()  # Loads API keys from .env
 
@@ -19,19 +18,30 @@ class Responce(BaseModel):
     sources : list[str]
     tools_used : list[str] 
 
+'''
+LLM Models
+    #openai/gpt-oss-20b:free
+    #openai/gpt-5-nano              to small token
+    #openai/gpt-oss-120b
+    #z-ai/glm-4.5-air:free          rate limit
+    #z-ai/glm-4-32b                 maxed token
+'''
 
 llm = ChatOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY"),
     model="z-ai/glm-4-32b", 
-    #openai/gpt-oss-20b:free
-    #openai/gpt-5-nano to small token
-    #openai/gpt-oss-120b
-    #z-ai/glm-4.5-air:free rate limit
-    #z-ai/glm-4-32b
     temperature=0,
-    max_completion_tokens=2000,
     model_kwargs={"response_format": {"type": "json_object"}} 
+)
+
+llm_fallback = ChatOpenAI( #same llm but lower token
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    model="z-ai/glm-4-32b",
+    temperature=0,
+    max_completion_tokens=1000,
+    model_kwargs={"response_format": {"type": "json_object"}}
 )
 
 parser = PydanticOutputParser(pydantic_object=Responce)
@@ -70,12 +80,57 @@ agent = create_tool_calling_agent(
 
 agent_executor = AgentExecutor(agent=agent, tools=[], verbose=True) #
 
-quary = input("Enter your query: ")
+def run_with_token_fallback(query):
+    global llm, agent_executor
+
+    try:
+        return agent_executor.invoke({
+            "query": query,
+            "chat_history": [],
+            "agent_scratchpad": []
+        })
+
+    except Exception as e:
+        err_msg = str(e).lower()
+        print("\n[!] Error encountered:", e)
+
+        # Credit/token handling
+        if (
+            "max tokens" in err_msg
+            or "token limit" in err_msg
+            or "too many tokens" in err_msg
+            or "requires more credits" in err_msg
+        ):
+            print("[!] Token/Credit issue — retrying with reduced max_completion_tokens...")
+
+            agent_fallback = create_tool_calling_agent(
+                llm=llm_fallback,
+                prompt=prompt,
+                tools=[]
+            )
+            executor_fallback = AgentExecutor(agent=agent_fallback, tools=[], verbose=True)
+
+            return executor_fallback.invoke({
+                "query": query,
+                "chat_history": [],
+                "agent_scratchpad": []
+            })
+
+        else:
+            raise
+
+# ✅ Use fallback runner here
+query = input("Enter your query: ")
+raw_response = run_with_token_fallback(query)
+
+'''
+query = input("Enter your query: ")
 raw_response = agent_executor.invoke({
-    "query": quary,
+    "query": query,
     "chat_history": [],
     "agent_scratchpad": []
 })
+'''
 
 # Parse directly
 chain = prompt | llm | parser
