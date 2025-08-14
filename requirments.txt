@@ -8,3 +8,5 @@ pydantic
 duckduckgo-search
 langchain-google-community
 ddgs
+reportlab
+python-docx

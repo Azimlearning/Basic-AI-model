@@ -7,7 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.runnables import RunnableSequence
-from tools import search_tool, wikipedia_tool, save_tool
+from tools import search_tool, wikipedia_tool, save_tool, save_pdf_tool, save_word_tool
 import traceback
 
 load_dotenv()  # Loads API keys from .env
@@ -18,7 +18,7 @@ class Responce(BaseModel):
     ingredients : list[str]
     instructions : list[str]
     sources : list[str]
-    tools_used : list[str]
+#   tools_used : list[str]
 
 def create_llm(max_tokens=None, llm_model=str):
     return ChatOpenAI(
@@ -57,6 +57,7 @@ For `tools_used`, list the names of the AI tools you used during the search and 
 
 Do not return the schema itself.
 Fill in the values for each field.
+
             """,
         ),
         ("placeholder", "{chat_history}"),
@@ -69,14 +70,15 @@ Fill in the values for each field.
 
 
 #tools = [search_tool, wikipedia_tool, save_tool] #
+tools = [search_tool, wikipedia_tool, save_tool, save_pdf_tool, save_word_tool]
 
 agent = create_tool_calling_agent(
     llm=llm_1,
     prompt=prompt,
-    tools= []
+    tools=tools
 )
 
-agent_executor = AgentExecutor(agent=agent, tools=[], verbose=True) #
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True) #
 
 def run_with_token_fallback(query):
     global llm, agent_executor
@@ -161,3 +163,6 @@ try:
     print("\nTools Used:", structured_response.tools_used)
 except Exception as e:
     print("Error parsing response:", e)
+
+#save_to_pdf(structured_response.dict())
+#save_to_word(structured_response.dict())
